@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My 時間割</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>My 時間割</h1>
+        
+        <div class="status-panel">
+            <div class="status-item">
+                <span class="label">現在時刻:</span>
+                <span id="current-time" class="value">--:--</span>
+            </div>
+            <div class="status-item">
+                <span class="label">現在の授業:</span>
+                <span id="current-class" class="value">--</span>
+            </div>
+            <div class="status-item">
+                <span class="label">次の授業:</span>
+                <span id="next-class" class="value">--</span>
+            </div>
+        </div>
+
+        <table id="timetable">
+            <thead>
+                <tr>
+                    <th class="time-col">時間</th>
+                    <th>Mon.</th>
+                    <th>Tue.</th>
+                    <th>Wed.</th>
+                    <th>Thu.</th>
+                    <th>Fri.</th>
+                    <th>Sat.</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
