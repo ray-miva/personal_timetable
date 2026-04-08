@@ -2,7 +2,6 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DISPLAY_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 let timetableData = null;
 
-// JSONデータを取得して初期化
 async function init() {
     try {
         const response = await fetch('timetable.json');
@@ -10,15 +9,14 @@ async function init() {
         
         timetableData = await response.json();
         renderTable();
-        updateStatus(); // 初回実行
-        setInterval(updateStatus, 1000); // 1秒ごとに更新
+        updateStatus();
+        setInterval(updateStatus, 1000);
     } catch (error) {
         console.error(error);
-        alert("timetable.json の読み込みに失敗しました。ローカルサーバーで実行しているか確認してください。");
+        alert("timetable.json の読み込みに失敗しました。");
     }
 }
 
-// テーブルをHTMLに描画する処理
 function renderTable() {
     const tbody = document.querySelector('#timetable tbody');
     tbody.innerHTML = "";
@@ -26,23 +24,53 @@ function renderTable() {
     timetableData.periods.forEach(p => {
         const tr = document.createElement('tr');
 
-        // 左端の時間列
+        // 左端の時間列 (基本の時間)
         const timeTd = document.createElement('td');
         timeTd.className = 'time-cell';
-        timeTd.innerHTML = `<strong>${p.id}限</strong>${p.start}<br>|<br>${p.end}`;
+        timeTd.innerHTML = `<strong>${p.label}</strong>${p.start}<br>|<br>${p.end}`;
         tr.appendChild(timeTd);
 
-        // 月〜土の各コマ
+        // 各曜日のコマ
         DISPLAY_DAYS.forEach(day => {
             const td = document.createElement('td');
-            const classInfo = timetableData.schedule[day] && timetableData.schedule[day][p.id];
+            const todaySchedule = timetableData.schedule[day] || {};
+            const classInfo = todaySchedule[p.id];
             
+            let innerHTML = '';
+            
+            // 通常の授業の描画
             if (classInfo) {
-                td.innerHTML = `
-                    <div class="class-name">${classInfo.name}</div>
-                    <div class="prof-name">${classInfo.prof}</div>
+                let timeHTML = '';
+                // もし個別に start と end が設定されていれば時間を表示する
+                if (classInfo.start && classInfo.end) {
+                    timeHTML = `<div class="override-time">⏰ ${classInfo.start}~${classInfo.end}</div>`;
+                }
+
+                innerHTML += `
+                    <div class="class-block has-class">
+                        ${timeHTML}
+                        <div class="class-name">${classInfo.name}</div>
+                        <div class="prof-name">${classInfo.det}</div>
+                    </div>
                 `;
-                td.classList.add('has-class');
+            }
+
+            // このコマの後に挿入される特殊な授業(HR等)の描画
+            if (todaySchedule.special) {
+                const specials = todaySchedule.special.filter(s => s.after === p.id);
+                specials.forEach(s => {
+                    innerHTML += `
+                        <div class="class-block special-class">
+                            <div class="special-time">${s.label} (${s.start}~${s.end})</div>
+                            <div class="class-name">${s.name}</div>
+                            <div class="prof-name">${s.det}</div>
+                        </div>
+                    `;
+                });
+            }
+
+            if (innerHTML !== '') {
+                td.innerHTML = innerHTML;
             }
             tr.appendChild(td);
         });
@@ -51,39 +79,73 @@ function renderTable() {
     });
 }
 
-// 現在の時刻・授業・次の授業を判定して表示する処理
 function updateStatus() {
     if (!timetableData) return;
 
     const now = new Date();
     const currentDayStr = DAYS[now.getDay()];
-    // "HH:MM"形式で現在時刻を取得
     const currentTimeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }); 
 
-    // 現在時刻の表示更新
     document.getElementById('current-time').textContent = `${currentTimeStr} (${currentDayStr})`;
 
     let currentClassStr = "なし";
     let nextClassStr = "なし";
-    let foundNext = false;
 
-    // 今日のスケジュールが存在する場合（月〜土）
     if (DISPLAY_DAYS.includes(currentDayStr)) {
         const todaySchedule = timetableData.schedule[currentDayStr] || {};
-
-        for (const p of timetableData.periods) {
+        
+        // タイムラインを構築
+        let timeline = [];
+        timetableData.periods.forEach(p => {
+            // クラス情報が存在するかチェック
             const classInfo = todaySchedule[p.id];
             
-            // 現在の授業の判定（開始時刻〜終了時刻の間）
-            if (currentTimeStr >= p.start && currentTimeStr <= p.end) {
-                currentClassStr = classInfo ? `${classInfo.name} (${classInfo.prof})` : "空きコマ";
-            } 
-            // 次の授業の判定（現在時刻より後で、まだ見つかっていない最初の授業）
-            else if (currentTimeStr < p.start && !foundNext) {
-                if (classInfo) {
-                    nextClassStr = `${classInfo.name} (${classInfo.prof}) [${p.start}~]`;
-                    foundNext = true;
-                }
+            // 重要：個別の start/end があればそちらを優先、なければ基本の時間を採用
+            const actualStart = (classInfo && classInfo.start) ? classInfo.start : p.start;
+            const actualEnd = (classInfo && classInfo.end) ? classInfo.end : p.end;
+
+            // コマをタイムラインに追加
+            timeline.push({
+                isClass: !!classInfo,
+                name: classInfo ? classInfo.name : "",
+                det: classInfo ? classInfo.det : "",
+                start: actualStart,
+                end: actualEnd
+            });
+
+            // 特殊コマ(HR等)を追加
+            if (todaySchedule.special) {
+                todaySchedule.special.filter(s => s.after === p.id).forEach(s => {
+                    timeline.push({
+                        isClass: true,
+                        name: s.name,
+                        det: s.det,
+                        start: s.start,
+                        end: s.end
+                    });
+                });
+            }
+        });
+
+        let currentIndex = -1;
+
+        // 現在のコマを探す
+        for (let i = 0; i < timeline.length; i++) {
+            const block = timeline[i];
+            if (currentTimeStr >= block.start && currentTimeStr <= block.end) {
+                currentIndex = i;
+                currentClassStr = block.isClass ? `${block.name} (${block.det})` : "空きコマ";
+                break;
+            }
+        }
+
+        // 次のコマを探す
+        if (currentIndex !== -1 && currentIndex + 1 < timeline.length) {
+            const nextBlock = timeline[currentIndex + 1];
+            if (nextBlock.isClass) {
+                nextClassStr = `${nextBlock.name} (${nextBlock.det}) [${nextBlock.start}~]`;
+            } else {
+                nextClassStr = "なし";
             }
         }
     }
@@ -92,5 +154,4 @@ function updateStatus() {
     document.getElementById('next-class').textContent = nextClassStr;
 }
 
-// 読み込み完了時に初期化関数を呼び出す
 document.addEventListener("DOMContentLoaded", init);
