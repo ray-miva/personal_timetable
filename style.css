@@ -47,27 +47,39 @@ h1 {
 }
 
 /* 時間割テーブル */
+
+/* 横スクロール用のラッパー（スマホ対応） */
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 20px;
+}
+/* 時間割テーブル */
 table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed;
+    min-width: 800px; 
 }
 
 th, td {
     border: 1px solid #ddd;
     text-align: center;
-    padding: 8px; /* セルの余白を少し調整 */
+    padding: 8px;
     vertical-align: middle;
+    word-break: keep-all; 
 }
 
 th {
     background-color: #2c3e50;
     color: white;
     padding: 12px 0;
+    min-width: 120px;
 }
 
 .time-col {
     width: 80px;
+    min-width: 80px;
 }
 
 .time-cell {
@@ -136,3 +148,4 @@ th {
     border-radius: 3px;
     display: inline-block;
 }
+

@@ -19,18 +19,19 @@ async function init() {
 
 function renderTable() {
     const tbody = document.querySelector('#timetable tbody');
+    if (!tbody) return;
     tbody.innerHTML = "";
 
     timetableData.periods.forEach(p => {
         const tr = document.createElement('tr');
 
-        // 左端の時間列 (基本の時間)
+        // 左端の時間列
         const timeTd = document.createElement('td');
         timeTd.className = 'time-cell';
         timeTd.innerHTML = `<strong>${p.label}</strong>${p.start}<br>|<br>${p.end}`;
         tr.appendChild(timeTd);
 
-        // 各曜日のコマ
+        // 月〜土の各コマを1つの行に描画
         DISPLAY_DAYS.forEach(day => {
             const td = document.createElement('td');
             const todaySchedule = timetableData.schedule[day] || {};
@@ -41,7 +42,6 @@ function renderTable() {
             // 通常の授業の描画
             if (classInfo) {
                 let timeHTML = '';
-                // もし個別に start と end が設定されていれば時間を表示する
                 if (classInfo.start && classInfo.end) {
                     timeHTML = `<div class="override-time">⏰ ${classInfo.start}~${classInfo.end}</div>`;
                 }
@@ -94,17 +94,12 @@ function updateStatus() {
     if (DISPLAY_DAYS.includes(currentDayStr)) {
         const todaySchedule = timetableData.schedule[currentDayStr] || {};
         
-        // タイムラインを構築
         let timeline = [];
         timetableData.periods.forEach(p => {
-            // クラス情報が存在するかチェック
             const classInfo = todaySchedule[p.id];
-            
-            // 重要：個別の start/end があればそちらを優先、なければ基本の時間を採用
             const actualStart = (classInfo && classInfo.start) ? classInfo.start : p.start;
             const actualEnd = (classInfo && classInfo.end) ? classInfo.end : p.end;
 
-            // コマをタイムラインに追加
             timeline.push({
                 isClass: !!classInfo,
                 name: classInfo ? classInfo.name : "",
@@ -113,7 +108,6 @@ function updateStatus() {
                 end: actualEnd
             });
 
-            // 特殊コマ(HR等)を追加
             if (todaySchedule.special) {
                 todaySchedule.special.filter(s => s.after === p.id).forEach(s => {
                     timeline.push({
@@ -129,7 +123,6 @@ function updateStatus() {
 
         let currentIndex = -1;
 
-        // 現在のコマを探す
         for (let i = 0; i < timeline.length; i++) {
             const block = timeline[i];
             if (currentTimeStr >= block.start && currentTimeStr <= block.end) {
@@ -139,7 +132,6 @@ function updateStatus() {
             }
         }
 
-        // 次のコマを探す
         if (currentIndex !== -1 && currentIndex + 1 < timeline.length) {
             const nextBlock = timeline[currentIndex + 1];
             if (nextBlock.isClass) {
